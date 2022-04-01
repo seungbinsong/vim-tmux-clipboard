@@ -1,4 +1,3 @@
-
 func! s:TmuxBufferName()
     let l:list = systemlist('tmux list-buffers -F"#{buffer_name}"')
     if len(l:list)==0
@@ -11,6 +10,30 @@ endfunc
 func! s:TmuxBuffer()
     return system('tmux show-buffer')
 endfunc
+
+func! s:YankToTmuxBuffer()
+    call system('tmux loadb -b buffer0 - ',getregtype('"'))
+    call system('tmux loadb - ',join(v:event["regcontents"],"\n"))
+endfunc
+
+func! s:YankToTmuxBufferOld()
+    call system('tmux loadb -b buffer0 - ',getregtype('"'))
+    call system('tmux loadb - ',@")
+endfunc
+
+func! s:StartsWith(longer, shorter) abort
+  return a:longer[0:len(a:shorter)-1] ==# a:shorter
+endfunction
+
+func! s:GetRegType()
+    let type = system('tmux show-buffer -b buffer0')
+    if ((type == "v") || (type == "V") || s:StartsWith(type,0x16))
+      return type
+    elseif
+      return ""
+    endif
+endfunc
+
 
 func! s:Enable()
 
@@ -28,18 +51,18 @@ func! s:Enable()
             autocmd!
             autocmd FocusLost * call s:update_from_tmux()
             autocmd	FocusGained   * call s:update_from_tmux()
-            autocmd TextYankPost * silent! call system('tmux loadb -',join(v:event["regcontents"],"\n"))
+            autocmd TextYankPost * silent! call s:YankToTmuxBuffer()
         augroup END
-        let @" = s:TmuxBuffer()
+        call setreg('"',s:TmuxBuffer(),s:GetRegType())
     else
         " vim doesn't support TextYankPost event
         " This is a workaround for vim
         augroup vimtmuxclipboard
             autocmd!
-            autocmd FocusLost     *  silent! call system('tmux loadb -',@")
-            autocmd	FocusGained   *  let @" = s:TmuxBuffer()
+            autocmd FocusLost     *  silent! call s:YankToTmuxBufferOld()
+            autocmd	FocusGained   *  call setreg('"',s:TmuxBuffer(),s:GetRegType())
         augroup END
-        let @" = s:TmuxBuffer()
+        call setreg('"',s:TmuxBuffer(),s:GetRegType())
     endif
 
 endfunc
@@ -47,7 +70,7 @@ endfunc
 func! s:update_from_tmux()
     let buffer_name = s:TmuxBufferName()
     if s:lastbname != buffer_name
-        let @" = s:TmuxBuffer()
+        call setreg('"',s:TmuxBuffer(),s:GetRegType())
     endif
     let s:lastbname=s:TmuxBufferName()
 endfunc

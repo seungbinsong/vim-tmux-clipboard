@@ -29,7 +29,7 @@ func! s:GetRegType()
     let type = system('tmux show-buffer -b buffer0')
     if ((type == "v") || (type == "V") || s:StartsWith(type,0x16))
       return type
-    elseif
+    else
       return ""
     endif
 endfunc
